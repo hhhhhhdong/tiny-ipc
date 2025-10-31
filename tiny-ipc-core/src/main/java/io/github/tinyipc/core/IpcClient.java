@@ -54,12 +54,16 @@ public final class IpcClient implements AutoCloseable {
             try {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    Message m = Messages.parseLine(line);
-                    if (m.id != null) {
-                        CompletableFuture<Message> f = pending.remove(m.id);
-                        if (f != null) {
-                            f.complete(m);
+                    try {
+                        Message m = Messages.parseLine(line);
+                        if (m.id != null) {
+                            var f = pending.remove(m.id);
+                            if (f != null) f.complete(m);
                         }
+                    } catch (Throwable perLine) {
+                        // JSON 아닐 때 진단하고 계속 진행
+                        stdLogger.accept("[worker:stdout(non-json)] " + line);
+                        continue;
                     }
                 }
                 // EOF: process likely died or closed stream
@@ -198,12 +202,33 @@ public final class IpcClient implements AutoCloseable {
                 ProcessBuilder pb = new ProcessBuilder(cmd);
                 if (workingDir != null) pb.directory(workingDir);
                 if (env != null && !env.isEmpty()) pb.environment().putAll(env);
-                pb.redirectErrorStream(true); // merge stderr into stdout
+
                 Process p = pb.start();
+
+                // stderr를 별도 스레드로 drain
+                Thread errDrainer = getErrDrainer(p);
+                errDrainer.start();
+
                 return new IpcClient(p, maxConcurrent, stdLogger);
             } catch (IOException e) {
                 throw new IpcException("Failed to start process", e);
             }
+        }
+
+        private Thread getErrDrainer(Process p) {
+            Thread errDrainer = new Thread(() -> {
+                try (var er = new BufferedReader(
+                        new InputStreamReader(p.getErrorStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = er.readLine()) != null) {
+                        if (stdLogger != null) stdLogger.accept("[worker:stderr] " + line);
+                    }
+                } catch (Exception ignore) {
+                    // 프로세스 종료 시 스트림 닫히며 예외가 날 수 있으니 무시
+                }
+            }, "tiny-ipc-stderr");
+            errDrainer.setDaemon(true);
+            return errDrainer;
         }
     }
 }
