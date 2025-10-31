@@ -4,6 +4,8 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.*;
@@ -153,8 +155,8 @@ public final class IpcClient implements AutoCloseable {
     // --------------------- Builder ---------------------
     public static final class Builder {
         private final Path command;
-        private java.util.List<String> args = java.util.List.of();
-        private java.util.Map<String, String> env = java.util.Map.of();
+        private List<String> args = List.of();
+        private Map<String, String> env = Map.of();
         private File workingDir;
         private int maxConcurrent = 16;
         private Consumer<String> stdLogger;
@@ -163,12 +165,12 @@ public final class IpcClient implements AutoCloseable {
             this.command = command;
         }
 
-        public Builder args(java.util.List<String> args) {
+        public Builder args(List<String> args) {
             this.args = args;
             return this;
         }
 
-        public Builder env(java.util.Map<String, String> env) {
+        public Builder env(Map<String, String> env) {
             this.env = env;
             return this;
         }
@@ -190,7 +192,7 @@ public final class IpcClient implements AutoCloseable {
 
         public IpcClient start() {
             try {
-                java.util.List<String> cmd = new java.util.ArrayList<>();
+                List<String> cmd = new ArrayList<>();
                 cmd.add(command.toString());
                 cmd.addAll(args);
                 ProcessBuilder pb = new ProcessBuilder(cmd);
