@@ -3,7 +3,7 @@ package io.github.tinyipc.core;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-final public class Messages {
+public final class Messages {
     private static final ObjectMapper OM = new ObjectMapper();
 
     public static String toJsonLine(Message m) {
@@ -22,5 +22,7 @@ final public class Messages {
         }
     }
 
-    public static ObjectMapper mapper() { return OM; }
+    public static ObjectMapper mapper() {
+        return OM;
+    }
 }

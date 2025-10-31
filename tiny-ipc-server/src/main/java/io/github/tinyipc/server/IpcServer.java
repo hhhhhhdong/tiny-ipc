@@ -26,7 +26,8 @@ public final class IpcServer {
                 }
 
                 Message resp = new Message();
-                resp.v = 1; resp.id = req.id;
+                resp.v = 1;
+                resp.id = req.id;
 
                 try {
                     JsonNode params = req.params == null ? OM.nullNode() : OM.valueToTree(req.params);
@@ -47,5 +48,6 @@ public final class IpcServer {
         }
     }
 
-    private IpcServer() {}
+    private IpcServer() {
+    }
 }

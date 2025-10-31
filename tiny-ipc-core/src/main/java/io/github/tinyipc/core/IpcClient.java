@@ -17,9 +17,15 @@ public final class IpcClient implements AutoCloseable {
     private final BufferedWriter writer;
     private final BufferedReader reader;
     private final ExecutorService readLoop = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "tiny-ipc-read"); t.setDaemon(true); return t; });
+        Thread t = new Thread(r, "tiny-ipc-read");
+        t.setDaemon(true);
+        return t;
+    });
     private final ExecutorService writeLoop = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "tiny-ipc-write"); t.setDaemon(true); return t; });
+        Thread t = new Thread(r, "tiny-ipc-write");
+        t.setDaemon(true);
+        return t;
+    });
 
     private final ConcurrentMap<String, CompletableFuture<Message>> pending = new ConcurrentHashMap<>();
     private final Semaphore inFlight;
@@ -27,14 +33,17 @@ public final class IpcClient implements AutoCloseable {
 
     private volatile boolean closed = false;
 
-    public static Builder builder(Path command) { return new Builder(command); }
+    public static Builder builder(Path command) {
+        return new Builder(command);
+    }
 
     private IpcClient(Process process, int maxConcurrent, Consumer<String> stdLogger) {
         this.process = process;
         this.writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
         this.reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
         this.inFlight = new Semaphore(Math.max(1, maxConcurrent));
-        this.stdLogger = stdLogger != null ? stdLogger : s -> {};
+        this.stdLogger = stdLogger != null ? stdLogger : s -> {
+        };
         startReadLoop();
     }
 
@@ -79,7 +88,10 @@ public final class IpcClient implements AutoCloseable {
 
         String id = Util.newId();
         Message req = new Message();
-        req.v = 1; req.id = id; req.method = method; req.params = params;
+        req.v = 1;
+        req.id = id;
+        req.method = method;
+        req.params = params;
 
         CompletableFuture<Message> future = new CompletableFuture<>();
         pending.put(id, future);
@@ -112,12 +124,27 @@ public final class IpcClient implements AutoCloseable {
         }
     }
 
-    @Override public void close() {
+    @Override
+    public void close() {
         closed = true;
-        try { writer.write("{\"v\":1,\"id\":\"" + Util.newId() + "\",\"method\":\"__shutdown__\"}\n"); writer.flush(); } catch (Exception ignore) {}
-        try { writer.close(); } catch (Exception ignore) {}
-        try { reader.close(); } catch (Exception ignore) {}
-        try { process.waitFor(500, TimeUnit.MILLISECONDS); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+        try {
+            writer.write("{\"v\":1,\"id\":\"" + Util.newId() + "\",\"method\":\"__shutdown__\"}\n");
+            writer.flush();
+        } catch (Exception ignore) {
+        }
+        try {
+            writer.close();
+        } catch (Exception ignore) {
+        }
+        try {
+            reader.close();
+        } catch (Exception ignore) {
+        }
+        try {
+            process.waitFor(500, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
         process.destroy();
         readLoop.shutdownNow();
         writeLoop.shutdownNow();
@@ -132,13 +159,34 @@ public final class IpcClient implements AutoCloseable {
         private int maxConcurrent = 16;
         private Consumer<String> stdLogger;
 
-        private Builder(Path command) { this.command = command; }
+        private Builder(Path command) {
+            this.command = command;
+        }
 
-        public Builder args(java.util.List<String> args) { this.args = args; return this; }
-        public Builder env(java.util.Map<String, String> env) { this.env = env; return this; }
-        public Builder workingDir(File dir) { this.workingDir = dir; return this; }
-        public Builder maxConcurrent(int n) { this.maxConcurrent = n; return this; }
-        public Builder logger(Consumer<String> l) { this.stdLogger = l; return this; }
+        public Builder args(java.util.List<String> args) {
+            this.args = args;
+            return this;
+        }
+
+        public Builder env(java.util.Map<String, String> env) {
+            this.env = env;
+            return this;
+        }
+
+        public Builder workingDir(File dir) {
+            this.workingDir = dir;
+            return this;
+        }
+
+        public Builder maxConcurrent(int n) {
+            this.maxConcurrent = n;
+            return this;
+        }
+
+        public Builder logger(Consumer<String> l) {
+            this.stdLogger = l;
+            return this;
+        }
 
         public IpcClient start() {
             try {
