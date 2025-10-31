@@ -67,9 +67,9 @@ public final class IpcClient implements AutoCloseable {
                     }
                 }
                 // EOF: process likely died or closed stream
-                failAll(new IpcException("E_PROCESS_DIED: worker stream closed"));
+                failAll(IpcException.processDied("worker stream closed", null));
             } catch (Throwable t) {
-                failAll(new IpcException("E_PROTOCOL: read loop error", t));
+                failAll(IpcException.protocol("read loop error", t));
             }
         });
     }
@@ -108,23 +108,32 @@ public final class IpcClient implements AutoCloseable {
                 writer.flush();
             } catch (IOException e) {
                 CompletableFuture<Message> f = pending.remove(id);
-                if (f != null) f.completeExceptionally(new IpcException("Write failed", e));
+                if (f != null) f.completeExceptionally(IpcException.writeFailed(e));
             }
         });
 
         try {
             Message resp = future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             if (resp.error != null) {
-                throw new IpcException(resp.error.code + ": " + resp.error.message);
+                ErrorCode ec = ErrorCode.from(resp.error.code);
+                throw new IpcException(ec, resp.error.code + ": " + resp.error.message);
             }
             if (resultType == Void.class || resp.result == null) return null;
             return Messages.mapper().convertValue(resp.result, resultType);
         } catch (TimeoutException te) {
             pending.remove(id);
-            throw new IpcException("E_DEADLINE_EXCEEDED: call timed out", te);
-        } catch (ExecutionException | InterruptedException e) {
-            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
-            throw new IpcException("Call failed", e);
+            throw IpcException.deadlineExceeded("call timed out", te);
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause();
+            if (cause instanceof IpcException) {
+                throw (IpcException) cause;   // 메시지/코드 그대로 보존
+            }
+            throw new IpcException("Call failed", cause);
+
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new IpcException("Call interrupted", ie);
+
         } finally {
             inFlight.release();
         }
